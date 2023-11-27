@@ -16,8 +16,6 @@ from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
-from google.colab import drive
-drive.mount('/content/drive')
 
 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 device
@@ -155,11 +153,11 @@ class PosDataset(Dataset):
     self.tokinizerSentance=Tokinizer()
     self.tokinizerLabel=Tokinizer()
 
-    self.tokinizerSentance.extractSentanceText("/content/drive/MyDrive/posTagging/tokinizerDict.json", "/content/drive/MyDrive/posTagging/train.json", "/content/drive/MyDrive/posTagging/test.json")
-    self.tokinizerSentance.loadTokinizerDictionary("/content/drive/MyDrive/posTagging/tokinizerSentanceDict.json")
+    self.tokinizerSentance.extractSentanceText("tokinizerDict.json", "train.json", "test.json")
+    self.tokinizerSentance.loadTokinizerDictionary("tokinizerSentanceDict.json")
 
-    self.tokinizerLabel.extractSentanceText("/content/drive/MyDrive/posTagging/tokinizerDict.json", "/content/drive/MyDrive/posTagging/train.json", "/content/drive/MyDrive/posTagging/test.json")
-    self.tokinizerLabel.loadTokinizerDictionary("/content/drive/MyDrive/posTagging/tokinizerLabelDict.json")
+    self.tokinizerLabel.extractSentanceText("tokinizerDict.json", "train.json", "test.json")
+    self.tokinizerLabel.loadTokinizerDictionary("tokinizerLabelDict.json")
 
 
 
@@ -218,7 +216,7 @@ class PosDataset(Dataset):
   def __len__(self)->int:
     return len(self.datasetSentances);
 
-dataset=PosDataset(["/content/drive/MyDrive/posTagging/test.json","/content/drive/MyDrive/posTagging/test.json"])
+dataset=PosDataset(["test.json","test.json"])
 
 """##Dataloader"""
 
