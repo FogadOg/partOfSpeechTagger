@@ -39,7 +39,6 @@ class TokinizerDatasetUtils():
     jsonObject=json.load(jsonfile)
     self.tokinizerDict=jsonObject
 
-
   def createDataset(self, dataset: list[list[str]], fileSavePath=None)->None:
     for sentance in dataset:
       for word in sentance:
@@ -56,7 +55,6 @@ class TokinizerDatasetUtils():
 
     dataset=self._extractData("sentence", DatasetfilePaths)
     self.createDataset(dataset, fileSavePath)
-
 
   def extractLabelText(self, fileSavePath=None, *DatasetfilePaths)->None:
     dataset=self._extractData("labels", DatasetfilePaths)
@@ -76,7 +74,6 @@ class TokinizerDatasetUtils():
         dataset.append(object[field])
     return dataset
 
-
   def _saveDictionary(self, savePath):
     with open(savePath, "w") as outfile:
       json.dump(self.tokinizerDict, outfile)
@@ -84,11 +81,9 @@ class TokinizerDatasetUtils():
 """###Tokinizer Class"""
 
 class Tokinizer(TokinizerDatasetUtils):
-  def __init__(self, maxSquenceLength=200):
-    super().__init__()
+  def __init__(self, maxDictLen=10000, maxSquenceLength=100):
+    super().__init__(maxDictLen)
     self.maxSquenceLength=maxSquenceLength
-
-
 
   def encode(self, sentanceList: list[str])->list[int]:
     encodedSentance=[]
@@ -105,13 +100,11 @@ class Tokinizer(TokinizerDatasetUtils):
 
     return self.addPaddingToEncoding(encodedSentance)
 
-
   def addPaddingToEncoding(self, encoding: list[int])->list[int]:
     paddingLengthRequired=self.maxSquenceLength-len(encoding)
     paddingArray=[self.tokinizerDict["PAD"]]*paddingLengthRequired
 
     return encoding+paddingArray
-
 
   def decode(self, encodedSentance: list[int])->list[str]:
     decodedString=""
@@ -130,26 +123,13 @@ class Tokinizer(TokinizerDatasetUtils):
   def __len__(self):
     return len(self.tokinizerDict)
 
-"""##Text Cleaner
-
-"""
-
-class TextProcessor():
-  def __init__(self):
-    pass
-  def processText(self, string:str)->str:
-    removePunctuations = re.sub(r"\s+[a-zA-Z]\s+", ' ', string)
-    removeMultipuleSpace = re.sub(r'\s+', ' ', removePunctuations)
-
-    return removeMultipuleSpace
-
 """##Make Dataset"""
 
 class PosDataset(Dataset):
 
   def __init__(self,filePaths: list):
-    self.tokinizerSentance=Tokinizer()
-    self.tokinizerLabel=Tokinizer()
+    self.tokinizerSentance=Tokinizer(maxDictLen=2000)
+    self.tokinizerLabel=Tokinizer(maxDictLen=2000)
 
     self.tokinizerSentance.extractSentanceText("tokinizerSentanceDict.json", "train.json", "test.json")
     self.tokinizerSentance.loadTokinizerDictionary("tokinizerSentanceDict.json")
@@ -196,7 +176,6 @@ class PosDataset(Dataset):
 
     return labelsList
 
-
   def tokinizedSentace(self, sentance: list[str])->list[int]:
     return self.tokinizerSentance.encode(sentance)
 
@@ -238,16 +217,16 @@ class PosModel(nn.Module):
   def __init__(self, vocabilarySize, hiddenSize, output):
     super().__init__()
     self.squential=nn.Sequential(
-      nn.Embedding(vocabilarySize,output)
+      nn.Embedding(vocabilarySize, hiddenSize),
+      nn.RNN(hiddenSize, output, 10)
     )
 
   def forward(self, sentance: torch.tensor):
     return self.squential(sentance)
 
 
-inputSize=dataset.tokinizerSentance
-outputSize=dataset.tokinizerLabel
-
+inputSize=len(dataset.tokinizerSentance.tokinizerDict)
+outputSize=len(dataset.tokinizerLabel.tokinizerDict)
 
 
 posModel=PosModel(inputSize,5,outputSize).to(device)
@@ -256,7 +235,7 @@ posModel=PosModel(inputSize,5,outputSize).to(device)
 
 def parametersCount(model):
   return sum(p.numel() for p in model.parameters() if p.requires_grad)
-print(f"posModel parameters: {parametersCount(posModel):,}")
+print(f"model parameters: {parametersCount(posModel):,}")
 
 
 optimizer=torch.optim.Adam(posModel.parameters(),lr=0.001)
@@ -276,14 +255,16 @@ class ModelTrainer():
 
     self.startTraining()
 
-
   def startTraining(self)->None:
     for epoch in tqdm(range(self.epochs)):
-      trainLoss, trainAccuracy=self.train()
-      testLoss, testAccuracy=self.test()
 
-      print(f"epoch {epoch} | train loss: {trainLoss}, train accuracy: {trainAccuracy} | test loss: {testLoss}, test accuracy: {testAccuracy}")
+      trainGenerator=self.train()
+      trainLoss, trainAccuracy=self.unpackGenerator(trainGenerator)
+      
+      testGenerator=self.test()
+      testLoss, testAccuracy=self.unpackGenerator(testGenerator)
 
+      print(f"epoch {epoch} | train loss: {trainLoss:.2f}, train accuracy: {trainAccuracy:.2f} | test loss: {testLoss:.2f}, test accuracy: {testAccuracy:.2f}")
 
   def train(self):
     for input, target in self.trainDataloader:
@@ -291,12 +272,12 @@ class ModelTrainer():
 
       prediction=self.model(input)
 
-      print(prediction.shape)
-
       loss, accuracy=self.getLossAndAccuracy(prediction, target)
-
+      loss.requires_grad = True
       loss.backward()
+
       self.optimizer.step()
+
       yield loss, accuracy
 
   def test(self):
@@ -310,16 +291,20 @@ class ModelTrainer():
 
       yield loss, accuracy
 
+  def unpackGenerator(self, generator):
+    generator=next(iter(generator))
+    loss, accuracy=generator[0],generator[1]
+    return loss, accuracy
 
   def getLossAndAccuracy(self,prediction,target):
-    prediction=prediction
-    target=target
+
+    prediction=prediction[0].argmax(2).float()
+    target=target.float()
 
     prediction_loss=self.loss(prediction,target)
     prediction_acc=self.accuracy(prediction,target)
 
     return prediction_loss,prediction_acc
-
 
   def accuracy(self,predictions,targets):
     assert predictions.shape == targets.shape, "Shapes of predictions and targets must match."
@@ -332,10 +317,4 @@ class ModelTrainer():
 
 
 
-
-
-
-
-
-
-ModelTrainer(posModel, optimizer, loss, dataset, 10, device)
+ModelTrainer(posModel, optimizer, loss, dataset, 100, device)
