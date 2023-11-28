@@ -16,8 +16,6 @@ from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
-from google.colab import drive
-drive.mount('/content/drive')
 
 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 device
@@ -56,20 +54,18 @@ class TokinizerDatasetUtils():
 
   def extractSentanceText(self, fileSavePath=None, *DatasetfilePaths)->None:
 
-    datsaet=self._extractData("sentence", DatasetfilePaths)
+    dataset=self._extractData("sentence", DatasetfilePaths)
     self.createDataset(dataset, fileSavePath)
 
 
   def extractLabelText(self, fileSavePath=None, *DatasetfilePaths)->None:
-    datsaet=self._extractData("labels", DatasetfilePaths)
+    dataset=self._extractData("labels", DatasetfilePaths)
     self.createDataset(dataset, fileSavePath)
 
     self.createDataset(dataset, fileSavePath)
 
   def _extractData(self, field: str, DatasetfilePaths):
     dataset=[]
-    print("DatasetfilePaths: ",DatasetfilePaths)
-
 
     for DatasetfilePath in DatasetfilePaths:
       jsonFile = open(DatasetfilePath)
@@ -155,16 +151,14 @@ class PosDataset(Dataset):
     self.tokinizerSentance=Tokinizer()
     self.tokinizerLabel=Tokinizer()
 
-    self.tokinizerSentance.extractSentanceText("/content/drive/MyDrive/posTagging/tokinizerDict.json", "/content/drive/MyDrive/posTagging/train.json", "/content/drive/MyDrive/posTagging/test.json")
-    self.tokinizerSentance.loadTokinizerDictionary("/content/drive/MyDrive/posTagging/tokinizerSentanceDict.json")
+    self.tokinizerSentance.extractSentanceText("tokinizerSentanceDict.json", "train.json", "test.json")
+    self.tokinizerSentance.loadTokinizerDictionary("tokinizerSentanceDict.json")
 
-    self.tokinizerLabel.extractSentanceText("/content/drive/MyDrive/posTagging/tokinizerDict.json", "/content/drive/MyDrive/posTagging/train.json", "/content/drive/MyDrive/posTagging/test.json")
-    self.tokinizerLabel.loadTokinizerDictionary("/content/drive/MyDrive/posTagging/tokinizerLabelDict.json")
+    self.tokinizerLabel.extractSentanceText("tokinizerLabelDict.json", "train.json", "test.json")
+    self.tokinizerLabel.loadTokinizerDictionary("tokinizerLabelDict.json")
 
 
 
-    print("tokinizerSentance: ",len(self.tokinizerSentance))
-    print("tokinizerLabel: ",len(self.tokinizerLabel))
 
     self.filePaths=filePaths
 
@@ -204,13 +198,10 @@ class PosDataset(Dataset):
 
 
   def tokinizedSentace(self, sentance: list[str])->list[int]:
-    return self.tokinizer.encode(sentance)
+    return self.tokinizerSentance.encode(sentance)
 
   def tokinizedLabels(self, labels: list[str])->list[int]:
-    return self.tokinizer.encode(labels)
-
-
-
+    return self.tokinizerLabel.encode(labels)
 
   def __getitem__(self,idx):
     return self.datasetSentances[idx],self.datasetLabels[idx]
@@ -218,7 +209,7 @@ class PosDataset(Dataset):
   def __len__(self)->int:
     return len(self.datasetSentances);
 
-dataset=PosDataset(["/content/drive/MyDrive/posTagging/test.json","/content/drive/MyDrive/posTagging/test.json"])
+dataset=PosDataset(["test.json","test.json"])
 
 """##Dataloader"""
 
@@ -253,7 +244,13 @@ class PosModel(nn.Module):
   def forward(self, sentance: torch.tensor):
     return self.squential(sentance)
 
-posModel=PosModel(10000,5,10000).to(device)
+
+inputSize=dataset.tokinizerSentance
+outputSize=dataset.tokinizerLabel
+
+
+
+posModel=PosModel(inputSize,5,outputSize).to(device)
 
 """#Optimizer and loss"""
 
@@ -294,7 +291,6 @@ class ModelTrainer():
 
       prediction=self.model(input)
 
-      print(prediction)
       print(prediction.shape)
 
       loss, accuracy=self.getLossAndAccuracy(prediction, target)
