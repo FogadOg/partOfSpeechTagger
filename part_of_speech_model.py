@@ -17,8 +17,6 @@ from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
-from google.colab import drive
-drive.mount('/content/drive')
 
 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 device
